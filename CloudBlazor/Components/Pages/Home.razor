@@ -1,0 +1,248 @@
+﻿@page "/"
+@using CloudBlazor.Interfaces
+@using CloudBlazor.Models
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Popups
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Navigations
+@inject IUserRepository UserRepository
+@inject IClassroomRepository ClassroomRepository
+@inject IBookingRepository BookingRepository
+
+@rendermode InteractiveServer
+
+<PageTitle>NURE classroom booking</PageTitle>
+
+<style>
+    .grid-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 20px;
+    }
+
+    .sf-grid {
+        min-width: 800px;
+        width: 100%;
+    }
+
+    .tab-content {
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .reload-btn {
+        margin-bottom: 15px;
+    }
+</style>
+
+<SfButton CssClass="reload-btn" OnClick="LoadAllData">Reload</SfButton>
+
+<SfTab>
+    <TabItems>
+        <TabItem>
+            <HeaderTemplate>
+                <div>Users</div>
+            </HeaderTemplate>
+            <ContentTemplate>
+                <div class="grid-container">
+                    <SfGrid @ref="UsersGrid"
+                            DataSource="@users"
+                            Toolbar="@ToolbarItems"
+                            AllowSorting="true"
+                            AllowPaging="true"
+                            Height="400"
+                            CssClass="sf-grid">
+                        <GridEvents TValue="User" OnActionComplete="OnUsersActionComplete"></GridEvents>
+                        <GridEditSettings AllowAdding="true" AllowEditing="true" AllowDeleting="true" Mode="EditMode.Dialog"></GridEditSettings>
+                        <GridColumns>
+                            <GridColumn Field=@nameof(User.UserID) IsPrimaryKey="true" Visible="false"></GridColumn>
+                            <GridColumn Field=@nameof(User.FirstName) HeaderText="First Name" Width="120"></GridColumn>
+                            <GridColumn Field=@nameof(User.LastName) HeaderText="Last Name" Width="120"></GridColumn>
+                            <GridColumn Field=@nameof(User.Email) HeaderText="Email" Width="200"></GridColumn>
+                            <GridColumn Field=@nameof(User.Role) HeaderText="Role" Width="100"></GridColumn>
+                            <GridColumn Field=@nameof(User.IsActive) HeaderText="Active" DisplayAsCheckBox="true" Width="80"></GridColumn>
+                            <GridColumn Field=@nameof(User.LastLogin) HeaderText="Last Login" Width="150" Format="d"></GridColumn>
+                        </GridColumns>
+                    </SfGrid>
+                </div>
+            </ContentTemplate>
+        </TabItem>
+
+        <TabItem>
+            <HeaderTemplate>
+                <div>Classrooms</div>
+            </HeaderTemplate>
+            <ContentTemplate>
+                <div class="grid-container">
+                    <SfGrid @ref="ClassroomsGrid"
+                            DataSource="@classrooms"
+                            Toolbar="@ToolbarItems"
+                            AllowSorting="true"
+                            AllowPaging="true"
+                            Height="400"
+                            CssClass="sf-grid">
+                        <GridEvents TValue="Classroom" OnActionComplete="OnClassroomsActionComplete"></GridEvents>
+                        <GridEditSettings AllowAdding="true" AllowEditing="true" AllowDeleting="true" Mode="EditMode.Dialog"></GridEditSettings>
+                        <GridColumns>
+                            <GridColumn Field=@nameof(Classroom.ClassroomID) IsPrimaryKey="true" Visible="false"></GridColumn>
+                            <GridColumn Field=@nameof(Classroom.RoomNumber) HeaderText="Room" Width="100"></GridColumn>
+                            <GridColumn Field=@nameof(Classroom.Building) HeaderText="Building" Width="120"></GridColumn>
+                            <GridColumn Field=@nameof(Classroom.Floor) HeaderText="Floor" Width="80"></GridColumn>
+                            <GridColumn Field=@nameof(Classroom.Capacity) HeaderText="Capacity" Width="100"></GridColumn>
+                            <GridColumn Field=@nameof(Classroom.HasProjector) HeaderText="Projector" DisplayAsCheckBox="true" Width="100"></GridColumn>
+                            <GridColumn Field=@nameof(Classroom.HasWhiteboard) HeaderText="Whiteboard" DisplayAsCheckBox="true" Width="100"></GridColumn>
+                            <GridColumn Field=@nameof(Classroom.IsActive) HeaderText="Active" DisplayAsCheckBox="true" Width="80"></GridColumn>
+                        </GridColumns>
+                    </SfGrid>
+                </div>
+            </ContentTemplate>
+        </TabItem>
+
+        <TabItem>
+            <HeaderTemplate>
+                <div>Bookings</div>
+            </HeaderTemplate>
+            <ContentTemplate>
+                <div class="grid-container">
+                    <SfGrid @ref="BookingsGrid"
+                            DataSource="@bookings"
+                            Toolbar="@ToolbarItems"
+                            AllowSorting="true"
+                            AllowPaging="true"
+                            Height="400"
+                            CssClass="sf-grid">
+                        <GridEvents TValue="Booking" OnActionComplete="OnBookingsActionComplete"></GridEvents>
+                        <GridEditSettings AllowAdding="true" AllowEditing="true" AllowDeleting="true" Mode="EditMode.Dialog"></GridEditSettings>
+                        <GridColumns>
+                            <GridColumn Field=@nameof(Booking.BookingID) IsPrimaryKey="true" Visible="false"></GridColumn>
+                            <GridColumn Field=@nameof(Booking.UserID) HeaderText="User" Width="120"></GridColumn>
+                            <GridColumn Field=@nameof(Booking.ClassroomID) HeaderText="Room" Width="100"></GridColumn>
+                            <GridColumn Field=@nameof(Booking.StartTime) HeaderText="Start" Width="150" Format="g"></GridColumn>
+                            <GridColumn Field=@nameof(Booking.EndTime) HeaderText="End" Width="150" Format="g"></GridColumn>
+                            <GridColumn Field=@nameof(Booking.Purpose) HeaderText="Purpose" Width="200"></GridColumn>
+                            <GridColumn Field=@nameof(Booking.Status) HeaderText="Status" Width="100"></GridColumn>
+                        </GridColumns>
+                    </SfGrid>
+                </div>
+            </ContentTemplate>
+        </TabItem>
+    </TabItems>
+</SfTab>
+
+@code {
+    // Grid References
+    private SfGrid<User>? UsersGrid;
+    private SfGrid<Classroom>? ClassroomsGrid;
+    private SfGrid<Booking>? BookingsGrid;
+
+    // Data Sources
+    private IEnumerable<User> users = new List<User>();
+    private IEnumerable<Classroom> classrooms = new List<Classroom>();
+    private IEnumerable<Booking> bookings = new List<Booking>();
+
+    private List<object> ToolbarItems = new List<object> { "Add", "Edit", "Delete", "Update", "Cancel" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAllData();
+    }
+
+    private async Task LoadAllData()
+    {
+        try
+        {
+            var tasks = new Task[]
+            {
+                Task.Run(async () => users = await UserRepository.GetAllAsync()),
+                Task.Run(async () => classrooms = await ClassroomRepository.GetAllAsync()),
+                Task.Run(async () => bookings = await BookingRepository.GetAllAsync())
+            };
+
+            await Task.WhenAll(tasks);
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading data: {ex.Message}");
+        }
+    }
+
+    private async Task OnUsersActionComplete(ActionEventArgs<User> args)
+    {
+        await HandleCrudOperation(args, UserRepository);
+    }
+
+    private async Task OnClassroomsActionComplete(ActionEventArgs<Classroom> args)
+    {
+        await HandleCrudOperation(args, ClassroomRepository);
+    }
+
+    private async Task OnBookingsActionComplete(ActionEventArgs<Booking> args)
+    {
+        await HandleCrudOperation(args, BookingRepository);
+    }
+
+    private async Task HandleCrudOperation<T>(ActionEventArgs<T> args, object repository)
+        where T : class
+    {
+        try
+        {
+            if (args.RequestType == Syncfusion.Blazor.Grids.Action.Save)
+            {
+                if (args.Action == "Add")
+                {
+                    switch (repository)
+                    {
+                        case IUserRepository userRepo:
+                            await userRepo.CreateAsync(args.Data as User);
+                            break;
+                        case IClassroomRepository classroomRepo:
+                            await classroomRepo.CreateAsync(args.Data as Classroom);
+                            break;
+                        case IBookingRepository bookingRepo:
+                            await bookingRepo.CreateAsync(args.Data as Booking);
+                            break;
+                    }
+                }
+                else if (args.Action == "Edit")
+                {
+                    switch (repository)
+                    {
+                        case IUserRepository userRepo:
+                            await userRepo.UpdateAsync(args.Data as User);
+                            break;
+                        case IClassroomRepository classroomRepo:
+                            await classroomRepo.UpdateAsync(args.Data as Classroom);
+                            break;
+                        case IBookingRepository bookingRepo:
+                            await bookingRepo.UpdateAsync(args.Data as Booking);
+                            break;
+                    }
+                }
+                await LoadAllData();
+            }
+            else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Delete)
+            {
+                switch (repository)
+                {
+                    case IUserRepository userRepo:
+                        await userRepo.DeleteAsync((args.Data as User)?.UserID ?? 0);
+                        break;
+                    case IClassroomRepository classroomRepo:
+                        await classroomRepo.DeleteAsync((args.Data as Classroom)?.ClassroomID ?? 0);
+                        break;
+                    case IBookingRepository bookingRepo:
+                        await bookingRepo.DeleteAsync((args.Data as Booking)?.BookingID ?? 0);
+                        break;
+                }
+                await LoadAllData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in CRUD operation: {ex.Message}");
+        }
+    }
+}
